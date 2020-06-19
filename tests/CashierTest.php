@@ -19,9 +19,9 @@ class CashierTest extends TestCase
     public function setUp(): void
     {
         Braintree_Configuration::environment('sandbox');
-        Braintree_Configuration::merchantId('yh3skqys4vrpjyj8');
-        Braintree_Configuration::publicKey('x9q54dv5q78hyh9d');
-        Braintree_Configuration::privateKey('15b6b9d1daf395487157cfc30383bb58');
+        Braintree_Configuration::merchantId(getenv('BRAINTREE_MERCHANT_ID'));
+        Braintree_Configuration::publicKey(getenv('BRAINTREE_PUBLIC_KEY'));
+        Braintree_Configuration::privateKey(getenv('BRAINTREE_PRIVATE_KEY'));
 
         Eloquent::unguard();
 
@@ -73,7 +73,7 @@ class CashierTest extends TestCase
         // Create Subscription
         $owner->newSubscription('main', 'IJPM0001')->create($this->getTestToken());
 
-        $this->assertEquals(1, count($owner->subscriptions));
+        $this->assertCount(1, $owner->subscriptions);
         $this->assertNotNull($owner->subscription('main')->braintree_id);
 
         $this->assertTrue($owner->subscribed('main'));
@@ -109,9 +109,9 @@ class CashierTest extends TestCase
         $this->assertFalse($subscription->onGracePeriod());
 
         // Swap Plan
-        $subscription->swap('IJPY0001');
+        $swap = $subscription->swap('IJPY0001');
 
-        $this->assertEquals('IJPY0001', $subscription->braintree_plan);
+        $this->assertEquals('IJPY0001', $swap->braintree_plan);
 
         // Invoice Tests
         $invoice = $owner->invoicesIncludingPending()[0];
@@ -197,6 +197,8 @@ class CashierTest extends TestCase
 
         foreach ($subscription->discounts as $discount) {
             if ($discount->id === '5tb2') {
+                $this->assertEquals('10.00', $discount->amount);
+
                 return;
             }
         }
@@ -213,23 +215,26 @@ class CashierTest extends TestCase
 
         // Create Subscription
         $owner->newSubscription('main', 'IJPY0001')->create($this->getTestToken());
+        $subscription = $owner->subscription('main');
 
-        $this->assertEquals(1, count($owner->subscriptions));
-        $this->assertNotNull($owner->subscription('main')->braintree_id);
+        $this->assertCount(1, $owner->subscriptions);
+        $this->assertNotNull($subscription->braintree_id);
 
         // Swap To Monthly
-        $owner->subscription('main')->swap('IJPM0001');
+        $swap = $subscription->swap('IJPM0001');
         $owner = $owner->fresh();
 
-        $this->assertEquals(2, count($owner->subscriptions));
-        $this->assertNotNull($owner->subscription('main')->braintree_id);
-        $this->assertEquals('IJPM0001', $owner->subscription('main')->braintree_plan);
+        $this->assertCount(2, $owner->subscriptions);
+        $this->assertNotNull($swap->braintree_id);
+        $this->assertEquals('IJPM0001', $swap->braintree_plan);
 
-        $braintreeSubscription = $owner->subscription('main')->asBraintreeSubscription();
+        $braintreeSubscription = $swap->asBraintreeSubscription();
 
         foreach ($braintreeSubscription->discounts as $discount) {
-            if ($discount->id === '5tb2') {
-                $this->assertEquals('10.00', $discount->amount);
+            if ($discount->id === 'plan-credit') {
+                var_dump($discount->amount);
+                $this->assertEquals('8.00', $discount->amount);
+                $this->assertEquals(9, $discount->numberOfBillingCycles);
 
                 return;
             }
@@ -266,8 +271,9 @@ class CashierTest extends TestCase
         $braintreeSubscription = $owner->subscription('main')->asBraintreeSubscription();
 
         foreach ($braintreeSubscription->discounts as $discount) {
-            if ($discount->id === '5tb2') {
-                $this->assertEquals('10.00', $discount->amount);
+            if ($discount->id === 'plan-credit') {
+                $this->assertEquals('72.00', $discount->amount);
+                $this->assertEquals(1, $discount->numberOfBillingCycles);
 
                 return;
             }
