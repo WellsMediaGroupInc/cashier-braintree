@@ -8,6 +8,7 @@
          convertWarningsToExceptions="true"
          processIsolation="false"
          stopOnFailure="false"
+         printerClass="Sempro\PHPUnitPrettyPrinter\PrettyPrinter"
 >
     <testsuites>
         <testsuite name="Package Test Suite">

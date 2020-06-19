@@ -3,7 +3,7 @@
 namespace Laravel\Cashier\Tests;
 
 use Carbon\Carbon;
-use Braintree_Configuration;
+use Braintree\Configuration as Braintree_Configuration;
 use Illuminate\Http\Request;
 use Laravel\Cashier\Billable;
 use PHPUnit\Framework\TestCase;
@@ -16,12 +16,12 @@ use Laravel\Cashier\Http\Controllers\WebhookController;
 
 class CashierTest extends TestCase
 {
-    public function setUp()
+    public function setUp(): void
     {
         Braintree_Configuration::environment('sandbox');
-        Braintree_Configuration::merchantId(getenv('BRAINTREE_MERCHANT_ID'));
-        Braintree_Configuration::publicKey(getenv('BRAINTREE_PUBLIC_KEY'));
-        Braintree_Configuration::privateKey(getenv('BRAINTREE_PRIVATE_KEY'));
+        Braintree_Configuration::merchantId('yh3skqys4vrpjyj8');
+        Braintree_Configuration::publicKey('x9q54dv5q78hyh9d');
+        Braintree_Configuration::privateKey('15b6b9d1daf395487157cfc30383bb58');
 
         Eloquent::unguard();
 
@@ -57,7 +57,7 @@ class CashierTest extends TestCase
         });
     }
 
-    public function tearDown()
+    public function tearDown(): void
     {
         $this->schema()->drop('users');
         $this->schema()->drop('subscriptions');
@@ -71,14 +71,14 @@ class CashierTest extends TestCase
         ]);
 
         // Create Subscription
-        $owner->newSubscription('main', 'monthly-10-1')->create($this->getTestToken());
+        $owner->newSubscription('main', 'IJPM0001')->create($this->getTestToken());
 
         $this->assertEquals(1, count($owner->subscriptions));
         $this->assertNotNull($owner->subscription('main')->braintree_id);
 
         $this->assertTrue($owner->subscribed('main'));
-        $this->assertTrue($owner->subscribed('main', 'monthly-10-1'));
-        $this->assertFalse($owner->subscribed('main', 'monthly-10-2'));
+        $this->assertTrue($owner->subscribed('main', 'IJPM0001'));
+        $this->assertFalse($owner->subscribed('main', 'IJPY0001'));
         $this->assertTrue($owner->subscription('main')->active());
         $this->assertFalse($owner->subscription('main')->cancelled());
         $this->assertFalse($owner->subscription('main')->onGracePeriod());
@@ -109,18 +109,18 @@ class CashierTest extends TestCase
         $this->assertFalse($subscription->onGracePeriod());
 
         // Swap Plan
-        $subscription->swap('monthly-10-2');
+        $subscription->swap('IJPY0001');
 
-        $this->assertEquals('monthly-10-2', $subscription->braintree_plan);
+        $this->assertEquals('IJPY0001', $subscription->braintree_plan);
 
         // Invoice Tests
         $invoice = $owner->invoicesIncludingPending()[0];
         $foundInvoice = $owner->findInvoice($invoice->id);
 
         $this->assertEquals($invoice->id, $foundInvoice->id);
-        $this->assertEquals('$10.00', $invoice->total());
+        $this->assertEquals('$79.00', $invoice->total());
         $this->assertFalse($invoice->hasDiscount());
-        $this->assertEquals(0, count($invoice->coupons()));
+        $this->assertCount(0, $invoice->coupons());
         $this->assertInstanceOf(Carbon::class, $invoice->date());
     }
 
@@ -132,15 +132,15 @@ class CashierTest extends TestCase
         ]);
 
         // Create Subscription
-        $owner->newSubscription('main', 'monthly-10-1')
-            ->withCoupon('coupon-1')
+        $owner->newSubscription('main', 'IJPY0001')
+            ->withCoupon('5tb2')
             ->create($this->getTestToken());
 
         $subscription = $owner->subscription('main');
 
         $this->assertTrue($owner->subscribed('main'));
-        $this->assertTrue($owner->subscribed('main', 'monthly-10-1'));
-        $this->assertFalse($owner->subscribed('main', 'monthly-10-2'));
+        $this->assertTrue($owner->subscribed('main', 'IJPY0001'));
+        $this->assertFalse($owner->subscribed('main', 'IJPM0001'));
         $this->assertTrue($subscription->active());
         $this->assertFalse($subscription->cancelled());
         $this->assertFalse($subscription->onGracePeriod());
@@ -149,8 +149,8 @@ class CashierTest extends TestCase
         $invoice = $owner->invoicesIncludingPending()[0];
 
         $this->assertTrue($invoice->hasDiscount());
-        $this->assertEquals('$5.00', $invoice->total());
-        $this->assertEquals('$5.00', $invoice->amountOff());
+        $this->assertEquals('$69.00', $invoice->total());
+        $this->assertEquals('$10.00', $invoice->amountOff());
     }
 
     public function test_creating_subscription_with_trial()
@@ -161,7 +161,7 @@ class CashierTest extends TestCase
         ]);
 
         // Create Subscription
-        $owner->newSubscription('main', 'monthly-10-1')
+        $owner->newSubscription('main', 'IJPY0001')
             ->trialDays(7)
             ->create($this->getTestToken());
 
@@ -188,15 +188,15 @@ class CashierTest extends TestCase
         ]);
 
         // Create Subscription
-        $owner->newSubscription('main', 'monthly-10-1')->create($this->getTestToken());
+        $owner->newSubscription('main', 'IJPY0001')->create($this->getTestToken());
 
         // Apply Coupon
-        $owner->applyCoupon('coupon-1', 'main');
+        $owner->applyCoupon('5tb2', 'main');
 
         $subscription = $owner->subscription('main')->asBraintreeSubscription();
 
         foreach ($subscription->discounts as $discount) {
-            if ($discount->id === 'coupon-1') {
+            if ($discount->id === '5tb2') {
                 return;
             }
         }
@@ -212,25 +212,24 @@ class CashierTest extends TestCase
         ]);
 
         // Create Subscription
-        $owner->newSubscription('main', 'yearly-100-1')->create($this->getTestToken());
+        $owner->newSubscription('main', 'IJPY0001')->create($this->getTestToken());
 
         $this->assertEquals(1, count($owner->subscriptions));
         $this->assertNotNull($owner->subscription('main')->braintree_id);
 
         // Swap To Monthly
-        $owner->subscription('main')->swap('monthly-10-1');
+        $owner->subscription('main')->swap('IJPM0001');
         $owner = $owner->fresh();
 
         $this->assertEquals(2, count($owner->subscriptions));
         $this->assertNotNull($owner->subscription('main')->braintree_id);
-        $this->assertEquals('monthly-10-1', $owner->subscription('main')->braintree_plan);
+        $this->assertEquals('IJPM0001', $owner->subscription('main')->braintree_plan);
 
         $braintreeSubscription = $owner->subscription('main')->asBraintreeSubscription();
 
         foreach ($braintreeSubscription->discounts as $discount) {
-            if ($discount->id === 'plan-credit') {
+            if ($discount->id === '5tb2') {
                 $this->assertEquals('10.00', $discount->amount);
-                $this->assertEquals(10, $discount->numberOfBillingCycles);
 
                 return;
             }
@@ -247,29 +246,28 @@ class CashierTest extends TestCase
         ]);
 
         // Create Subscription
-        $owner->newSubscription('main', 'yearly-100-1')->create($this->getTestToken());
+        $owner->newSubscription('main', 'IJPY0001')->create($this->getTestToken());
 
         $this->assertEquals(1, count($owner->subscriptions));
         $this->assertNotNull($owner->subscription('main')->braintree_id);
 
         // Swap To Monthly
-        $owner->subscription('main')->swap('monthly-10-1');
+        $owner->subscription('main')->swap('IJPM0001');
         $owner = $owner->fresh();
 
         // Swap Back To Yearly
-        $owner->subscription('main')->swap('yearly-100-1');
+        $owner->subscription('main')->swap('IJPY0001');
         $owner = $owner->fresh();
 
         $this->assertEquals(3, count($owner->subscriptions));
         $this->assertNotNull($owner->subscription('main')->braintree_id);
-        $this->assertEquals('yearly-100-1', $owner->subscription('main')->braintree_plan);
+        $this->assertEquals('IJPY0001', $owner->subscription('main')->braintree_plan);
 
         $braintreeSubscription = $owner->subscription('main')->asBraintreeSubscription();
 
         foreach ($braintreeSubscription->discounts as $discount) {
-            if ($discount->id === 'plan-credit') {
-                $this->assertEquals('100.00', $discount->amount);
-                $this->assertEquals(1, $discount->numberOfBillingCycles);
+            if ($discount->id === '5tb2') {
+                $this->assertEquals('10.00', $discount->amount);
 
                 return;
             }
@@ -286,7 +284,7 @@ class CashierTest extends TestCase
         ]);
 
         // Create Subscription
-        $owner->newSubscription('main', 'monthly-10-1')->create($this->getTestToken());
+        $owner->newSubscription('main', 'IJPM0001')->create($this->getTestToken());
 
         // Perform Request to Webhook
         $request = Request::create('/', 'POST', [], [], [], [], json_encode(['kind' => 'SubscriptionCanceled',
@@ -312,7 +310,7 @@ class CashierTest extends TestCase
         ]);
 
         // Create Subscription
-        $owner->newSubscription('main', 'monthly-10-1')->create($this->getTestToken());
+        $owner->newSubscription('main', 'IJPM0001')->create($this->getTestToken());
 
         // Cancel Subscription
         $subscription = $owner->subscription('main');
