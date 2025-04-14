@@ -231,15 +231,11 @@ class Invoice
      */
     public function pdf(array $data)
     {
-        if (! defined('DOMPDF_ENABLE_AUTOLOAD')) {
-            define('DOMPDF_ENABLE_AUTOLOAD', false);
-        }
-
-        if (file_exists($configPath = base_path().'/vendor/dompdf/dompdf/dompdf_config.inc.php')) {
-            require_once $configPath;
-        }
-
-        $dompdf = new Dompdf;
+        $dompdf = new Dompdf([
+            'enable_remote' => true,
+            'enable_php' => false,
+            'enable_javascript' => false
+        ]);
 
         $dompdf->loadHtml($this->view($data)->render());
 

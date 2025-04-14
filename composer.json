@@ -13,7 +13,7 @@
     "require": {
         "php": ">=7.2.5",
         "braintree/braintree_php": "*",
-        "dompdf/dompdf": "^0.8.0",
+        "dompdf/dompdf": "*",
         "illuminate/contracts": "^7.0|^8.0",
         "illuminate/database": "^7.0|^8.0",
         "illuminate/http": "^7.0|^8.0",
